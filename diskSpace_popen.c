@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 		if(strcmp(MP->mountdir, argv[1]) == 0)
 		{
 			printf("'%s' Diskinfo\n", argv[1]);
-			printf("DiskSize:	%s MB\nUsedSize:	%s MB\nAvailable:	%s MB\n",
+			printf("DiskSize:	%s KB\nUsedSize:	%s KB\nAvailable:	%s KB\n",
 					MP->blocks, MP->used, MP->avail);
 			return 0;
 		}
