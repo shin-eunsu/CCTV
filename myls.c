@@ -72,12 +72,17 @@
 #include<unistd.h>
 #include<pwd.h>
 #include<dirent.h>
+//
 #include<time.h>
 #include<sys/time.h>
+
 #include<sys/types.h>
 #include<sys/stat.h>
 #include<sys/vfs.h>
 #include<sys/types.h>
+//terminalsize
+#include<termios.h>
+#include<sys/ioctl.h>
 
 #define COLOR_RED		"\x1b[31m"
 #define COLOR_GREEN		"\x1b[32m"
@@ -94,32 +99,46 @@
 #define COLOR_RESET		"\x1b[0m"
 //printf(COLOR_RED "text" COLOR_RESET "\n");
 
+int MAX_Len_Link = 0;
+int MAX_Len_Size = 0;
+int MAX_Len_Name = 0;
+int hideFileCnt = 0;
+
+int T_Size_Row;
+int T_Size_Col;
+
 struct stat st;
 struct statfs stf;
 mode_t file_mode;
 
-struct dirent* dir_entry;
+struct dirent** dir_list;
 DIR* dir_info;
-
+int dir_cnt;
 struct passwd* user_pw;
 struct passwd* group_pw;
 
 char fileTypeUmask[11];
 
-
-void printFileList();
+void printFileList(char* opt, int i);
 int hideFileCheck(char* filename);
 void getFileTypeUmask();
 void printFileSet(char user_id, char group_id, int flag);
+void getTerminalSize();
+void MaxLenCheck();
 
 int main(int argc, char* argv[])
 {
-	dir_info = opendir(".");
+	getTerminalSize();	
+	MaxLenCheck();
+
+	if((dir_cnt = scandir(".", &dir_list, NULL, alphasort)) == -1)
+		perror("Err: ");
+
 	if(argc == 1) //ls
 	{
-		while(dir_entry = readdir(dir_info)) //dir search
+		for(int i = 0; i < dir_cnt; i++)
 		{
-			if(-1 == stat(dir_entry->d_name, &st))
+			if(-1 == stat(dir_list[i]->d_name, &st))
 			{
 				perror("Err: ");
 				exit(0);
@@ -127,10 +146,9 @@ int main(int argc, char* argv[])
 			file_mode = st.st_mode;
 			
 			//(regular file | DIR | LNK) && hidefile remove
-			if((dir_entry->d_type & (DT_REG | DT_DIR | DT_LNK) &&
-						!hideFileCheck(dir_entry->d_name)))
+			if((dir_list[i]->d_type & (DT_REG | DT_DIR | DT_LNK) && !hideFileCheck(dir_list[i]->d_name)))
 			{
-				printFileList("");
+				printFileList("", i);
 			}
 		}
 	}
@@ -138,36 +156,36 @@ int main(int argc, char* argv[])
 	{
 		if(strcmp(argv[1], "-a") == 0)
 		{
-			while(dir_entry = readdir(dir_info)) //dir search
+			for(int i = 0; i < dir_cnt; i++)
 			{
-				if(-1 == stat(dir_entry->d_name, &st))
+				if(-1 == stat(dir_list[i]->d_name, &st))
 				{
-					perror("Err: ");
+					perror("Err stat -a: ");
 					exit(0);
 				}
 				file_mode = st.st_mode;
 
-				if((dir_entry->d_type & (DT_REG | DT_DIR | DT_LNK)))
+				if((dir_list[i]->d_type & (DT_REG | DT_DIR | DT_LNK)))
 				{
-					printFileList("-a");
+					printFileList("-a", i);
 				}
 			}
 		}
 		else if(strcmp(argv[1], "-al") == 0)
 		{
-			while(dir_entry = readdir(dir_info)) //dir search
+			for(int i = 0; i < dir_cnt; i++)
 			{
-				if(-1 == stat(dir_entry->d_name, &st))
+				if(-1 == stat(dir_list[i]->d_name, &st))
 				{
-					perror("Err: ");
+					perror("Err stat -al: ");
 					exit(0);
 				}
 				file_mode = st.st_mode;
 
-				if((dir_entry->d_type & (DT_REG | DT_DIR | DT_LNK)))
+				if((dir_list[i]->d_type & (DT_REG | DT_DIR | DT_LNK)))
 				{
-					printFileList("-al");
-				}//
+					printFileList("-al", i);
+				}
 			}
 		}
 	}//else if(argc == 2)
@@ -176,15 +194,21 @@ int main(int argc, char* argv[])
 		perror("argc err:");
 		return 1;
 	}
+
+	for(int i = 0; i < dir_cnt; i++)
+	{
+		free(dir_list[i]);
+	}
+	free(dir_list);
 }
 
-void printFileList(char* opt)
+void printFileList(char* opt, int i)
 {
 	char user_id[50] ={0};
 	char group_id[50] = {0};
 	char set_time[BUFSIZ];
 	struct tm* tm = localtime(&st.st_mtime);
-
+	int n_cnt;
 	//id
 	user_pw = getpwuid(st.st_uid);
 	group_pw = getpwuid(st.st_uid);
@@ -196,40 +220,86 @@ void printFileList(char* opt)
 
 	getFileTypeUmask();
 
-	if(!strcmp("-a", opt) || !strcmp("", opt))
+	if(!strcmp("", opt))
 	{
 		if(S_ISLNK(file_mode)) //symbolic link
-			printf(COLOR_BRIGHT_CYAN "%s@" COLOR_RESET "\n", dir_entry->d_name);
+		{
+			printf(COLOR_BRIGHT_CYAN "%-*s@ " COLOR_RESET, MAX_Len_Name, dir_list[i]->d_name);
+		}
 		else if(S_ISDIR(file_mode)) //dir
-			printf(COLOR_BRIGHT_BLUE "%s" COLOR_RESET "\n", dir_entry->d_name);
+		{
+			printf(COLOR_BRIGHT_BLUE "%-*s " COLOR_RESET, MAX_Len_Name, dir_list[i]->d_name);
+		}
 		else if(S_ISREG(file_mode)) //nomal file
 		{
 			if(st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
-				printf(COLOR_BRIGHT_GREEN "%s\n" COLOR_RESET, dir_entry->d_name);
+			{
+				printf(COLOR_BRIGHT_GREEN"%-*s "COLOR_RESET, MAX_Len_Name, dir_list[i]->d_name);
+			}
 			else
-				printf("%s\n", dir_entry->d_name);
+			{
+				printf("%-*s ",MAX_Len_Name, dir_list[i]->d_name);
+			}
 		}
+		//Terminal Size별 출력 개행 (히든파일 이후부터 출력)
+		n_cnt = (T_Size_Col - (T_Size_Row % MAX_Len_Name)) / (MAX_Len_Name);
+		if(!((i + hideFileCnt + 1) % n_cnt) || i == dir_cnt - 1)
+			puts("");
+	}
+	else if(!strcmp("-a", opt))
+	{
+		if(S_ISLNK(file_mode)) //symbolic link
+		{
+			printf(COLOR_BRIGHT_CYAN "%-*s@ " COLOR_RESET, MAX_Len_Name, dir_list[i]->d_name);
+		}
+		else if(S_ISDIR(file_mode)) //dir
+		{
+			printf(COLOR_BRIGHT_BLUE "%-*s " COLOR_RESET, MAX_Len_Name, dir_list[i]->d_name);
+		}
+		else if(S_ISREG(file_mode)) //nomal file
+		{
+			if(st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
+			{
+				printf(COLOR_BRIGHT_GREEN"%-*s "COLOR_RESET, MAX_Len_Name, dir_list[i]->d_name);
+			}
+			else
+			{
+				printf("%-*s ",MAX_Len_Name, dir_list[i]->d_name);
+			}
+		}
+		//Terminal Size별 출력 개행
+		n_cnt = (T_Size_Col - (T_Size_Row % MAX_Len_Name)) / (MAX_Len_Name);
+		if(!((i+1) % n_cnt) || i == dir_cnt - 1)
+			puts(""); //-al
 	}
 	else if(!strcmp("-al", opt))
 	{
 		if(S_ISLNK(file_mode)) //symbolic link
-			printf(COLOR_BRIGHT_CYAN "%s %ld %s %s %lld	%s	%s" COLOR_RESET "\n",
-					fileTypeUmask, st.st_nlink, user_id, group_id, (long long)st.st_size,
-					set_time, dir_entry->d_name);
+		{
+			printf(COLOR_BRIGHT_CYAN "%s %*ld %s %s %*lld %s %s" COLOR_RESET "\n",
+					fileTypeUmask, MAX_Len_Link, st.st_nlink, user_id, group_id, 
+					MAX_Len_Size, (long long)st.st_size, set_time, dir_list[i]->d_name);
+		}
 		else if(S_ISDIR(file_mode)) //dir
-			printf(COLOR_BRIGHT_BLUE "%s %ld %s %s %lld	%s	%s" COLOR_RESET "\n",
-					fileTypeUmask, st.st_nlink, user_id, group_id, (long long)st.st_size,
-					set_time, dir_entry->d_name);
+		{
+			printf("%s %*ld %s %s %*lld %s" COLOR_BRIGHT_BLUE " %s" COLOR_RESET "\n",
+					fileTypeUmask, MAX_Len_Link, st.st_nlink, user_id, group_id, MAX_Len_Size,
+					(long long)st.st_size, set_time, dir_list[i]->d_name);
+		}
 		if(S_ISREG(file_mode)) //nomal file
 		{
 			if(st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
-				printf("%s %ld %s %s %lld	%s" COLOR_BRIGHT_GREEN "	%s" COLOR_RESET"\n",
-					fileTypeUmask, st.st_nlink, user_id, group_id, (long long)st.st_size,
-					set_time, dir_entry->d_name);
+			{
+				printf("%s %*ld %s %s %*lld %s" COLOR_BRIGHT_GREEN " %s" COLOR_RESET"\n",
+					fileTypeUmask, MAX_Len_Link, st.st_nlink, user_id, group_id, MAX_Len_Size,
+					(long long)st.st_size, set_time, dir_list[i]->d_name);
+			}
 			else
-				printf("%s %ld %s %s %lld	%s	%s\n",
-					fileTypeUmask, st.st_nlink, user_id, group_id, (long long)st.st_size,
-					set_time, dir_entry->d_name);
+			{
+				printf("%s %*ld %s %s %*lld %s %s\n",
+					fileTypeUmask, MAX_Len_Link, st.st_nlink, user_id, group_id, MAX_Len_Size,
+					(long long)st.st_size, set_time, dir_list[i]->d_name);
+			}
 		}
 	}
 }
@@ -239,78 +309,81 @@ int hideFileCheck(char* filename)
 	char tmp[1];
 	strncpy(tmp, filename, 1);
 	if(!strcmp(tmp, "."))
+	{
+		hideFileCnt++;
 		return 1; //hide
+	}
 	else
+	{
 		return 0; //no
+	}
 }
 
 void getFileTypeUmask()
 {
-	memset(&fileTypeUmask, 0, sizeof(fileTypeUmask));
-
+	strcpy(fileTypeUmask, "-rwxrwxrwx");
 	switch(st.st_mode & S_IFMT)
 	{
-		case S_IFREG:	strcat(fileTypeUmask, "-");	break; 
-		case S_IFDIR:	strcat(fileTypeUmask, "d");	break;
-		case S_IFCHR:	strcat(fileTypeUmask, "c");	break;
-		case S_IFBLK:	strcat(fileTypeUmask, "b");	break;
-		case S_IFSOCK:	strcat(fileTypeUmask, "s");	break;
-		case S_IFLNK:	strcat(fileTypeUmask, "l");	break;
+		case S_IFREG:	fileTypeUmask[0] = '-';	break; 
+		case S_IFDIR:	fileTypeUmask[0] = 'd';	break;
+		case S_IFCHR:	fileTypeUmask[0] = 'c';	break;
+	if((dir_cnt = scandir(".", &dir_list, NULL, alphasort)) == -1)
+		perror("Err: ");
+		case S_IFBLK:	fileTypeUmask[0] = 'b';	break;
+		case S_IFSOCK:	fileTypeUmask[0] = 's';	break;
+		case S_IFLNK:	fileTypeUmask[0] = 'l';	break;
 	}
 
-	for(int i = 1; i < 10; i++)
-	{
-		
+	for(int i = 0; i < 10; i++)
+	{	
+		if(!(S_IRUSR >> i & st.st_mode))
+			fileTypeUmask[i + 1] = '-';
 	}
-
-	if(S_IRUSR & st.st_mode)
-		strcat(fileTypeUmask, "r");
-	else
-		strcat(fileTypeUmask, "-");
-
-	if(S_IWUSR & st.st_mode)
-		strcat(fileTypeUmask, "w");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IXUSR & st.st_mode)
-		strcat(fileTypeUmask, "x");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IRGRP & st.st_mode)
-		strcat(fileTypeUmask, "r");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IWGRP & st.st_mode)
-		strcat(fileTypeUmask, "w");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IXGRP & st.st_mode)
-		strcat(fileTypeUmask, "x");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IROTH & st.st_mode)
-		strcat(fileTypeUmask, "r");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IWOTH & st.st_mode)
-		strcat(fileTypeUmask, "w");
-	else
-		strcat(fileTypeUmask, "-");
-	
-	if(S_IXOTH & st.st_mode)
-		strcat(fileTypeUmask, "x");
-	else
-		strcat(fileTypeUmask, "-");
 }
 
-void checkFilesize()
+void MaxLenCheck()
 {
+	struct stat st2;
+	struct dirent** dir_list2;
+	int cnt;
+	char filesize[BUFSIZ];
+	char linksize[BUFSIZ];
+	//glob
+//	int MAX_Len_Link = 0;
+//	int MAX_Len_Size = 0;
+//	int MAX_Len_Name = 0;
+
+	if((cnt = scandir(".", &dir_list2, NULL, alphasort)) == -1)
+		perror("Err: ");
+
+	for(int i = 0; i < cnt; i++)
+	{
+		if(-1 == stat(dir_list2[i]->d_name, &st2))
+		{
+			perror("Err: ");
+			exit(0);
+		}
+		file_mode = st2.st_mode;
+		
+		sprintf(linksize, "%ld", st2.st_nlink);
+		if(MAX_Len_Link < strlen(linksize))
+			MAX_Len_Link = strlen(linksize);
+		
+		sprintf(filesize, "%lld", (long long)st2.st_size);
+		if(MAX_Len_Size < strlen(filesize))
+			MAX_Len_Size = strlen(filesize); 
+
+		if(MAX_Len_Name < strlen(dir_list2[i]->d_name))
+			MAX_Len_Name = strlen(dir_list2[i]->d_name); 
+	}
+}
+
+void getTerminalSize()
+{
+	struct winsize ws;
+	ioctl(0, TIOCGWINSZ, &ws);
+	T_Size_Row = ws.ws_row;
+	T_Size_Col = ws.ws_col;
 }
 
 //void get fileLNK()
