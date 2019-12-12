@@ -243,7 +243,7 @@ void printFileList(char* opt, int i)
 		}
 		//Terminal Size별 출력 개행 (히든파일 이후부터 출력)
 		n_cnt = (T_Size_Col - (T_Size_Row % MAX_Len_Name)) / (MAX_Len_Name);
-		if(!((i + hideFileCnt) % n_cnt) || i == dir_cnt - 1)
+		if(!((i + hideFileCnt - 1) % n_cnt) || i == dir_cnt - 1)
 			puts("");
 	}
 	else if(!strcmp("-a", opt))
@@ -269,7 +269,7 @@ void printFileList(char* opt, int i)
 		}
 		//Terminal Size별 출력 개행
 		n_cnt = (T_Size_Col - (T_Size_Row % MAX_Len_Name)) / (MAX_Len_Name);
-		if(!((i+1) % n_cnt) || i == dir_cnt - 1)
+		if(!((i + 1) % n_cnt) || i == dir_cnt - 1)
 			puts(""); //-al
 	}
 	else if(!strcmp("-al", opt))
