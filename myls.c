@@ -376,6 +376,12 @@ void MaxLenCheck()
 		if(MAX_Len_Name < strlen(dir_list2[i]->d_name))
 			MAX_Len_Name = strlen(dir_list2[i]->d_name); 
 	}
+	
+	for(int i = 0; i < cnt; i++)
+	{
+		free(dir_list2[i]);
+	}
+	free(dir_list2);
 }
 
 void getTerminalSize()
