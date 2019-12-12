@@ -334,6 +334,15 @@ void getFileTypeUmask()
 		case S_IFLNK:	fileTypeUmask[0] = 'l';	break;
 	}
 
+	//S_IRUSR: 400
+	//S_IWUSR: 200
+	//S_IXUSR: 100
+	//S_IRGRP: 40
+	//S_IWGRP: 20
+	//S_IXGRP: 10
+	//S_IROTH: 4
+	//S_IWOTH: 2
+	//S_IXOTH: 1
 	for(int i = 0; i < 10; i++)
 	{	
 		if(!(S_IRUSR >> i & st.st_mode))
