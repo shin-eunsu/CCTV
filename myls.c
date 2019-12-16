@@ -327,8 +327,6 @@ void getFileTypeUmask()
 		case S_IFREG:	fileTypeUmask[0] = '-';	break; 
 		case S_IFDIR:	fileTypeUmask[0] = 'd';	break;
 		case S_IFCHR:	fileTypeUmask[0] = 'c';	break;
-	if((dir_cnt = scandir(".", &dir_list, NULL, alphasort)) == -1)
-		perror("Err: ");
 		case S_IFBLK:	fileTypeUmask[0] = 'b';	break;
 		case S_IFSOCK:	fileTypeUmask[0] = 's';	break;
 		case S_IFLNK:	fileTypeUmask[0] = 'l';	break;
