@@ -7,6 +7,9 @@
 // Drivers for the camera and OpenCV are included in the base image
 
 #define DEBUG
+#define IP "192.168.1.10"
+#define PORT 3000
+#define DISK_AVAILABLE_SIZE 1048576 * 10 //10GB
 
 #include<iostream>
 #include<opencv2/opencv.hpp>
@@ -19,6 +22,11 @@
 #include<sys/stat.h>
 #include<dirent.h>
 #include<unistd.h>
+#include<string.h>
+#include<stdlib.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
+#include<sys/wait.h>
 
 // #include <opencv2/videoio.hpp>
 // #include <opencv2/highgui.hpp>
@@ -48,9 +56,7 @@ int main()
 	int cnt = 0;
 
 	int dir_err;
-
 	int mkdir_check = 1;
-
 	char make_dir[50];
 	char remove_dir[400];
 	char check_minute[3];
@@ -58,17 +64,28 @@ int main()
 	char dir_path[40]; // 저장 폴더 경로 
 	char file_name[100]; // 파일 이름 20191216_151625
 	char save_path[100]; // 파일 저장 경로 및 이름
+	
+	//time
 	time_t UTCtime = time(0);
 	struct tm* tm = localtime(&UTCtime);
-
+	
 	//diskinfo
 	struct statfs sf;
 	int diskSize;
-
+	
 	//scandir
 	struct dirent** dir_list;
 	int dir_cnt;
-	
+
+	//socket
+	struct sockaddr_in serv_addr;
+	int clnt_sock;
+	char buf_snd[BUFSIZ];
+	pid_t tcp_pid;
+	FILE* fd;
+	int file_len;
+	int status;
+
     std::string pipeline = gstreamer_pipeline(capture_width,
 	capture_height,
 	display_width,
@@ -79,7 +96,6 @@ int main()
 
 	cv::VideoCapture cap(pipeline, cv::CAP_GSTREAMER);
 	int fourcc = VideoWriter::fourcc('D', 'I', 'V', 'X');
-//	int delay = cvRound(1000 / framerate);
 	
 	if(!cap.isOpened())
 	{
@@ -88,20 +104,39 @@ int main()
 	}
 	cv::Mat img;
 
+	
+	if((clnt_sock = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+	{
+		perror("socket err: ");
+		exit(1);
+	}
+	bzero(buf_snd, sizeof(buf_snd));
+	bzero(&serv_addr, sizeof(serv_addr));
+	
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = inet_addr(IP);
+	serv_addr.sin_port = htons(PORT);
+
+	if(connect(clnt_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
+	{
+		perror("connect err: ");
+		exit(1);
+	}
+
 	while(1)
 	{
 		//Disk Space Check
 		statfs("/", &sf);
 		diskSize = sf.f_bavail * (sf.f_bsize/1024);
 		
-		if(diskSize < 1048576 * 10) // diskSize < 10GB
+		if(diskSize < DISK_AVAILABLE_SIZE) // 10GB
 		{
 			//scandir
 			if((dir_cnt = scandir(dir_path_init, &dir_list, NULL, alphasort)) == -1)
 				perror("scandir err: ");
 			//rm dir
 			sprintf(remove_dir, "rm -rf %s%s", dir_path_init, dir_list[2]->d_name);
-			if((dir_cnt = system(remove_dir)) == -1)
+			if(system(remove_dir) == -1)
 				perror("err rm dir: ");
 			else
 				cout << "@ remove " << dir_list[2]->d_name << " directory" << endl;
@@ -110,10 +145,6 @@ int main()
 				free(dir_list[i]);
 			free(dir_list);
 		}
-
-//		memset(&save_path, 0, sizeof(save_path));
-//		memset(&file_name, 0, sizeof(file_name));
-//		memset(&dir_path, 0, sizeof(dir_path));
 
 		cnt = 0; //frame cnt set 0
 		//get current time
@@ -136,7 +167,7 @@ int main()
 		}
 		
 		sprintf(save_path, "%s%s%s.avi", dir_path_init, dir_path, file_name);
-
+	
 #ifdef DEBUG
 		cout<<"******************************************************************"<< endl;
 		cout<<"* file_name: " << file_name << endl;
@@ -149,9 +180,30 @@ int main()
 #endif
 
 		VideoWriter outputVideo(save_path, fourcc, framerate, Size(capture_width, capture_height));
+
+		if((tcp_pid = fork()) == -1)
+		{
+			perror("fork err: ");
+		}
+		else if(tcp_pid == 0)
+		{
+			if((fd = fopen(save_path, "rb")) == NULL)
+				perror("fopen err: ");
+
+			while(1)
+			{
+				file_len = fread(buf_snd, 1, sizeof(buf_snd), fd);
+				send(clnt_sock, buf_snd, file_len, 0);
+				if(feof(fd))
+					break;
+			}
+			close(clnt_sock);
+		}
 		
 		while(true)
 		{
+			if((waitpid(tcp_pid, &status, WNOHANG)) > 0)
+				cout<<"send "<< save_path<<" file" << endl;
 			if (!cap.read(img))
 			{
 				std::cout<<"Capture read error"<<std::endl;
@@ -166,7 +218,6 @@ int main()
 				cv::destroyAllWindows();
 				return 0;
 			}
-
 			cnt++;
 			if(cnt > 1799)
 				break;
