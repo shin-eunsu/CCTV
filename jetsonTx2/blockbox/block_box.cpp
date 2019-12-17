@@ -18,6 +18,7 @@
 #include<sys/vfs.h>
 #include<sys/stat.h>
 #include<dirent.h>
+#include<unistd.h>
 
 // #include <opencv2/videoio.hpp>
 // #include <opencv2/highgui.hpp>
@@ -50,12 +51,12 @@ int main()
 
 	int mkdir_check = 1;
 
-	char make_dir[30];
-	char remove_dir[30];
+	char make_dir[50];
+	char remove_dir[400];
 	char check_minute[3];
-	char dir_path_init[30] = "/home/user1/blockbox/";
-	char dir_path[30]; // 저장 폴더 경로 
-	char file_name[30]; // 파일 이름 20191216_151625
+	char dir_path_init[25] = "/home/user1/blockbox/";
+	char dir_path[40]; // 저장 폴더 경로 
+	char file_name[100]; // 파일 이름 20191216_151625
 	char save_path[100]; // 파일 저장 경로 및 이름
 	time_t UTCtime = time(0);
 	struct tm* tm = localtime(&UTCtime);
@@ -98,51 +99,53 @@ int main()
 			//scandir
 			if((dir_cnt = scandir(dir_path_init, &dir_list, NULL, alphasort)) == -1)
 				perror("scandir err: ");
-			//rm dir 맨앞
-			strcpy(remove_dir, "rm -rf ");
-			strcat(remove_dir, dir_list[0]->d_name);
+			//rm dir
+			sprintf(remove_dir, "rm -rf %s%s", dir_path_init, dir_list[2]->d_name);
 			if((dir_cnt = system(remove_dir)) == -1)
 				perror("err rm dir: ");
 			else
-				printf("Remove %s directory\n", dir_list[0]->d_name);
+				cout << "@ remove " << dir_list[2]->d_name << " directory" << endl;
 			//scan dir 메모리 반환
 			for(int i = 0; i < dir_cnt; i++)
 				free(dir_list[i]);
 			free(dir_list);
 		}
-		
-		memset(&save_path, 0, sizeof(save_path)); //init save_path
-		strcpy(make_dir, "mkdir /home/user1/blockbox/"); //init make_dir
+
+//		memset(&save_path, 0, sizeof(save_path));
+//		memset(&file_name, 0, sizeof(file_name));
+//		memset(&dir_path, 0, sizeof(dir_path));
 
 		cnt = 0; //frame cnt set 0
 		//get current time
 		UTCtime = time(0);
 		tm = localtime(&UTCtime);
-		strftime(file_name, 100, "%Y%m%d_%H%M%S", tm); // 파일명 (초 까지)
-		strftime(dir_path, 20, "%Y%m%d_%H/", tm); // 폴더명 (시 까지)
-		strcat(make_dir, dir_path);
+
+		strftime(file_name, sizeof(file_name), "%Y%m%d_%H%M%S", tm); // 20191216_101531
+		strftime(dir_path, sizeof(dir_path), "%Y%m%d_%H/", tm); // 20191216_10
+		strftime(check_minute, sizeof(check_minute), "%M", tm);
+		sprintf(make_dir, "%s%s", dir_path_init, dir_path);
 		
-		strftime(check_minute, 3, "%m", tm); //save파일 분단위 확인 (폴더 생성)
 		if(!strcmp(check_minute, "00") || !strcmp(check_minute, "01"))
 				mkdir_check = 1;
 		
 		if(mkdir_check) //첫 시작시엔 무조건 한번 실행
 		{
-			if((dir_err = system(make_dir)) == -1)
+			if((dir_err = mkdir(make_dir, 0777)) == -1)
 				perror("err mkdir: ");
 			mkdir_check = 0;
 		}
-	
-		strcpy(save_path, dir_path_init);
-		strcat(save_path, dir_path); // /home/user1/blockbox/20191231_1550/ 폴더
-		strcat(save_path, file_name); // + 파일명		
-		strcat(save_path, ".avi"); // + avi 확장자
-
+		
+		sprintf(save_path, "%s%s%s.avi", dir_path_init, dir_path, file_name);
 
 #ifdef DEBUG
-		cout<<"Availble Disk Size: "<< diskSize << endl;
-		cout<<"filename: "<< file_name << endl;
-		cout<<"save_path: "<< save_path << endl;
+		cout<<"******************************************************************"<< endl;
+		cout<<"* file_name: " << file_name << endl;
+		cout<<"* dir_path: " << dir_path << endl;
+		cout<<"* M: " << check_minute << endl;
+		cout<<"* make_dir: " << make_dir << endl;
+		cout<<"* Availble Disk Size: ["<< diskSize << "]KB" << endl;
+		cout<<"* filename: "<< file_name << endl;
+		cout<<"* save_path: "<< save_path << endl;
 #endif
 
 		VideoWriter outputVideo(save_path, fourcc, framerate, Size(capture_width, capture_height));
@@ -165,7 +168,7 @@ int main()
 			}
 
 			cnt++;
-			if(cnt > 1790)
+			if(cnt > 1799)
 				break;
 		}
 	}
