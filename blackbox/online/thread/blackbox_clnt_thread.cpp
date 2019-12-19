@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
 //			exit(1);
 		}
 #ifdef DEBUG
-		cout << "connect socket: " << DS->clnt_sock << endl;
+		cout << "* connect socket: " << DS->clnt_sock << endl;
 #endif
 		//Disk Space Check
 		statfs("/", &sf);
