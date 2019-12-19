@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
 		if((DS->clnt_sock = socket(PF_INET, SOCK_STREAM, 0)) == -1)
 		{
 			perror("socket err: ");
-			exit(1);
+//			exit(1);
 		}
 
 		memset(&DS->buf_snd, 0, sizeof(DS->buf_snd));
@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
 		if(connect(DS->clnt_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
 		{
 			perror("connect err: ");
-			exit(1);
+//			exit(1);
 		}
 #ifdef DEBUG
 		cout << "connect socket: " << DS->clnt_sock << endl;
@@ -272,7 +272,7 @@ void* send_data(void* arg)
 	long file_size = 0;
 	char file_name2[100];
 	char save_path2[BUFSIZ];
-	char clnt_sock2 = ds->clnt_sock;
+	int clnt_sock2 = ds->clnt_sock;
 	strcpy(file_name2, ds->file_name);
 	strcpy(save_path2, ds->save_path);
 
@@ -307,12 +307,12 @@ void* send_data(void* arg)
 	shutdown(clnt_sock2, SHUT_WR);
 	fflush(fd);
 
-#ifdef DEBUG2
-	cout<<"** send complete: "<< save_path2 << endl;
-#endif
 	fclose(fd);
 	close(clnt_sock2);
-
+#ifdef DEBUG2
+	cout<<"** send complete: "<< save_path2 << endl;
+	cout<<"** close fd(" << fd <<"), close clnt_sock(" << clnt_sock2 << ")" << endl;
+#endif
 	return 0;
 }
 
