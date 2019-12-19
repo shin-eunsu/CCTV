@@ -125,7 +125,6 @@ int main(int argc, char* argv[])
 		printf("* file_name: %s\n", file_name);
 		printf("* save_path: %s\n", save_path);
 		printf("* make_dir: %s\n", make_dir);
-		printf("*********************************************************************\n");
 #endif
 
 		if(!strcmp(check_minute, "00") || !strcmp(check_minute, "01"))
@@ -155,6 +154,7 @@ int main(int argc, char* argv[])
 
 #ifdef DEBUG
 		printf("* finish data recv\n");
+		printf("*********************************************************************\n");
 #endif
 		fflush(fd);
 		fclose(fd);

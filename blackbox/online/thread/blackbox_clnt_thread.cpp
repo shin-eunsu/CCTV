@@ -52,12 +52,12 @@ pthread_mutex_t mutx;
 
 typedef struct _DataSet
 {
-	int file_len;
+	//int file_len;
 	int clnt_sock;
 	char buf_snd[BUFSIZ];
 	char file_name[100]; // 파일 이름 20191216_151625
 	char save_path[BUFSIZ]; // 파일 저장 경로 및 이름
-	FILE* fd;
+	//FILE* fd;
 }DataSet;
 
 //func
@@ -80,8 +80,6 @@ int main(int argc, char* argv[])
 	char check_minute[3];
 	char dir_path_init[25] = "/home/user1/blackbox/";
 	char dir_path[40]; // 저장 폴더 경로 
-	//char file_name[100]; // 파일 이름 20191216_151625
-	//char save_path[100]; // 파일 저장 경로 및 이름
 	
 	//time
 	time_t UTCtime = time(0);
@@ -97,22 +95,13 @@ int main(int argc, char* argv[])
 
 	//socket
 	struct sockaddr_in serv_addr;
-	//int clnt_sock;
-	//char buf_snd[BUFSIZ];
-//	FILE* fd;
-	//int file_len;
 
 	//thread
 	pthread_t p_thread;
 	pthread_attr_t attr;
-//	void* thread_return;
 	int thread_id;
-//	int status;
 	DataSet* DS;
 	DS = (DataSet*)malloc(sizeof(DataSet));
-
-	//fork
-//	pid_t v_pid;
 	
     std::string pipeline = gstreamer_pipeline(capture_width,
 	capture_height,
@@ -153,7 +142,9 @@ int main(int argc, char* argv[])
 			perror("connect err: ");
 			exit(1);
 		}
-
+#ifdef DEBUG
+		cout << "connect socket: " << DS->clnt_sock << endl;
+#endif
 		//Disk Space Check
 		statfs("/", &sf);
 		diskSize = sf.f_bavail * (sf.f_bsize/1024);
@@ -198,6 +189,7 @@ int main(int argc, char* argv[])
 		}
 		
 		sprintf(DS->save_path, "%s%s%s.avi", dir_path_init, dir_path, DS->file_name);
+		pthread_mutex_unlock(&mutx);
 
 	
 #ifdef DEBUG
@@ -230,14 +222,12 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 			cnt++;
-			if(cnt > 900)
+			if(cnt > 1800)
 				break;
 		}//while(true)
-
 #ifdef DEBUG
 		cout<<"* cap finish\n"<<endl;
 #endif
-		pthread_mutex_unlock(&mutx);
 		//thread
 		if(pthread_attr_init(&attr) != 0)
 		{
@@ -260,11 +250,6 @@ int main(int argc, char* argv[])
 			perror("thread_destroy err: ");
 			exit(1);
 		}
-//		pthread_join(p_thread, (void**)&status);
-//		pthread_detach(p_thread);
-#ifdef DEBUG
-		cout<<"* join finish\n"<<endl;
-#endif
 	}
 
 	cap.release();
@@ -301,9 +286,6 @@ void* send_data(void* arg)
 	cout <<"** save_path: " << save_path2 << endl;
 #endif
 	
-#ifdef DEBUG2
-	cout <<"** filnish sleep " << endl;
-#endif
 	if((fd = fopen(save_path2, "rb")) == NULL)
 		perror("** fopen err: ");
 
@@ -326,7 +308,7 @@ void* send_data(void* arg)
 	fflush(fd);
 
 #ifdef DEBUG2
-	cout<<"** send "<< save_path2 <<" file" << endl;
+	cout<<"** send complete: "<< save_path2 << endl;
 #endif
 	fclose(fd);
 	close(clnt_sock2);
