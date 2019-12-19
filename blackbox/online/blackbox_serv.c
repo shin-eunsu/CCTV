@@ -64,13 +64,13 @@ int main(int argc, char* argv[])
 
 	if(bind(serv_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
 	{
-		perror("bind err: ");
+		perror("* bind err: ");
 		exit(1);
 	}
 
 	if(listen(serv_sock, 5) == -1)
 	{
-		perror("listen err: ");
+		perror("* listen err: ");
 		exit(1);
 	}
 	while(1)
@@ -90,12 +90,12 @@ int main(int argc, char* argv[])
 		if(diskSize < DISK_AVAILABLE_SPACE) //10GB
 		{
 			if((dir_cnt = scandir(dir_name_init, &dir_list, NULL, alphasort)) == -1)
-				perror("scandir err: ");
+				perror("=> scandir err: ");
 			sprintf(remove_dir, "rm -rf %s%s", dir_name_init, dir_list[2]->d_name);
 			if(system(remove_dir) == -1)
-				perror("err rmdir: ");
+				perror("=> err rmdir: ");
 			else
-				printf("remove %s directory\n", dir_list[2]->d_name);
+				printf("=> remove %s directory\n", dir_list[2]->d_name);
 
 			for(int i = 0; i < dir_cnt; i++)
 				free(dir_list[i]);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 		clnt_addr_size = sizeof(clnt_addr);
 		clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
 		if(clnt_sock == -1)
-			perror("clnt_sock err: ");
+			perror("* clnt_sock err: ");
 
 		//recv file_name
 		file_len = recv(clnt_sock, file_name, sizeof(file_name), 0); //get filename
@@ -125,6 +125,7 @@ int main(int argc, char* argv[])
 		printf("* file_name: %s\n", file_name);
 		printf("* save_path: %s\n", save_path);
 		printf("* make_dir: %s\n", make_dir);
+		printf("* clnt_sock: %d\n", clnt_sock);
 #endif
 
 		if(!strcmp(check_minute, "00") || !strcmp(check_minute, "01"))
