@@ -244,23 +244,23 @@ int main(int argc, char* argv[])
 		if(pthread_attr_init(&attr) != 0)
 		{
 			perror("attr err: ");
-			exit(1);
+//			exit(1);
 		}
 //		if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE) != 0)
 		if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
 		{
 			perror("thread setdetach err: ");
-			exit(1);
+//			exit(1);
 		}
 		if((thread_id = pthread_create(&p_thread, &attr, send_data, (void*)DS)) < 0)
 		{
 			perror("thread err: ");
-			exit(1);
+//			exit(1);
 		}
 		if(pthread_attr_destroy(&attr) != 0)
 		{
 			perror("thread_destroy err: ");
-			exit(1);
+//			exit(1);
 		}
 	}
 

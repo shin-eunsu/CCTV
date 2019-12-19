@@ -158,7 +158,7 @@ int main(int argc, char* argv[])
 #endif
 		fflush(fd);
 		fclose(fd);
+		close(clnt_sock);
 	}//while
-	close(clnt_sock);
 	return 0;
 }
