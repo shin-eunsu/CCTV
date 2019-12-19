@@ -1,3 +1,11 @@
+// simple_camera.cpp
+// MIT License
+// Copyright (c) 2019 JetsonHacks
+// See LICENSE for OpenCV license and additional information
+// Using a CSI camera (such as the Raspberry Pi Version 2) connected to a 
+// NVIDIA Jetson Nano Developer Kit using OpenCV
+// Drivers for the camera and OpenCV are included in the base image
+
 #define DEBUG
 #define DEBUG2
 
@@ -143,19 +151,31 @@ int main(int argc, char* argv[])
 		
 		if(diskSize < DISK_AVAILABLE_SIZE) // 10GB
 		{
+#ifdef DEBUG
+		cout << "* start rmdir " << endl;
+#endif
 			//scandir
 			if((dir_cnt = scandir(dir_path_init, &dir_list, NULL, alphasort)) == -1)
 				perror("scandir err: ");
+#ifdef DEBUG
+		cout << "* scan dir " << endl;
+#endif
 			//rm dir
 			sprintf(remove_dir, "rm -rf %s%s", dir_path_init, dir_list[2]->d_name);
 			if(system(remove_dir) == -1)
 				perror("err rm dir: ");
 			else
 				cout << "@ remove " << dir_list[2]->d_name << " directory" << endl;
+#ifdef DEBUG
+		cout << "* finish rmdir " << endl;
+#endif
 			//scan dir 메모리 반환
 			for(int i = 0; i < dir_cnt; i++)
 				free(dir_list[i]);
 			free(dir_list);
+#ifdef DEBUG
+		cout << "* free rmdir memory" << endl;
+#endif
 		}
 
 		cnt = 0; //frame cnt set 0
@@ -303,7 +323,7 @@ void* send_data(void* arg)
 	close(clnt_sock2);
 #ifdef DEBUG2
 	cout<<"** send complete: "<< save_path2 << endl;
-	cout<<"** close fd(" << fd <<"), close clnt_sock(" << clnt_sock2 << ")" << endl;
+	cout<<"** close fd(" << fd <<") clnt_sock(" << clnt_sock2 << ")" << endl;
 #endif
 	return 0;
 }
